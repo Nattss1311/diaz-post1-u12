@@ -16,3 +16,9 @@
 * **Punto de variabilidad:** La cantidad, naturaleza y lógica de reacción de los módulos interesados cada vez que cambia el estado de una solicitud.
 * **Patrón de diseño:** Observer (Observador).
 * **Justificación (Test de explicabilidad):** Establece una suscripción uno a muchos donde el cambio de estado de una solicitud notifica automáticamente a múltiples interesados desacoplados sin que el servicio conozca quiénes son ni qué acciones ejecutan.
+
+## Decisiones de Diseño
+
+### Decisión de diseño 1: Orden de encadenamiento de validadores
+* **Decisión tomada:** Encadenar los validadores en el orden: 1° `ValidadorDocumentosSoporte` → 2° `ValidadorMontoMaximo` → 3° `ValidadorDuplicados`.
+* **Justificación técnica:** Se aplica el principio de evaluación de cortocircuito (fail-fast). Las validaciones de documentos soporte y monto máximo se ejecutan en tiempo constante O(1) evaluando atributos en memoria del propio objeto. En contraste, `ValidadorDuplicados` es el eslabón computacionalmente más costoso al requerir iterar sobre una colección O(N) de solicitudes existentes. Al colocar `ValidadorDuplicados` al final de la cadena, si una solicitud carece de documentos soporte o excede el tope de su categoría, el flujo se interrumpe de inmediato sin ejecutar la búsqueda sobre la lista de pendientes, ahorrando ciclos de CPU y memoria. Ubicarlo primero perdería eficiencia al forzar búsquedas innecesarias sobre solicitudes que de todos modos serían rechazadas por datos incompletos.
