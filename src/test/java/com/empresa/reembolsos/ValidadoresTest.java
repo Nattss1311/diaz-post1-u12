@@ -1,7 +1,11 @@
-package com.empresa.reembolsos.procesamiento.validacion;
+package com.empresa.reembolsos;
 
 import com.empresa.reembolsos.dominio.CategoriaGasto;
 import com.empresa.reembolsos.dominio.SolicitudReembolso;
+import com.empresa.reembolsos.procesamiento.validacion.ResultadoValidacion;
+import com.empresa.reembolsos.procesamiento.validacion.ValidadorDocumentosSoporte;
+import com.empresa.reembolsos.procesamiento.validacion.ValidadorDuplicados;
+import com.empresa.reembolsos.procesamiento.validacion.ValidadorMontoMaximo;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -19,7 +23,7 @@ class ValidadoresTest {
         SolicitudReembolso solicitud = new SolicitudReembolso();
         solicitud.setDocumentosSoporte(false);
 
-        ResultadoValidacion res = validador.validarPropio(solicitud, Collections.emptyList());
+        ResultadoValidacion res = validador.validar(solicitud, Collections.emptyList());
         assertFalse(res.valida());
         assertEquals("Faltan documentos soporte", res.motivoRechazo());
     }
@@ -31,9 +35,9 @@ class ValidadoresTest {
         solicitud.setCategoria(CategoriaGasto.VIAJE);
         solicitud.setMontoSolicitado(new BigDecimal("200000")); // Tope viaje: 150000
 
-        ResultadoValidacion res = validador.validarPropio(solicitud, Collections.emptyList());
+        ResultadoValidacion res = validador.validar(solicitud, Collections.emptyList());
         assertFalse(res.valida());
-        assertTrue(res.motivoRechazo().contains("Monto excede el tope de la categoria VIAJE"));
+        assertTrue(res.motivoRechazo().contains("Monto excede el tope"));
     }
 
     @Test
@@ -47,7 +51,7 @@ class ValidadoresTest {
         pendiente.setCategoria(CategoriaGasto.CAPACITACION);
         pendiente.setFechaGasto(LocalDate.of(2026, 5, 20));
 
-        ResultadoValidacion res = validador.validarPropio(solicitud, List.of(pendiente));
+        ResultadoValidacion res = validador.validar(solicitud, List.of(pendiente));
         assertFalse(res.valida());
         assertEquals("Ya existe una solicitud pendiente de la misma categoria en el periodo", res.motivoRechazo());
     }

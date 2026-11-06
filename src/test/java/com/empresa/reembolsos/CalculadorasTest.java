@@ -1,6 +1,9 @@
-package com.empresa.reembolsos.procesamiento.calculo;
+package com.empresa.reembolsos;
 
 import com.empresa.reembolsos.dominio.SolicitudReembolso;
+import com.empresa.reembolsos.procesamiento.calculo.CalculadoraCapacitacion;
+import com.empresa.reembolsos.procesamiento.calculo.CalculadoraRepresentacion;
+import com.empresa.reembolsos.procesamiento.calculo.CalculadoraViaje;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;

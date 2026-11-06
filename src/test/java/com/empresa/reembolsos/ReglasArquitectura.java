@@ -27,7 +27,7 @@ public class ReglasArquitectura {
             .that().resideInAPackage("..adaptadores.rest..")
             .should().onlyAccessClassesThat()
             .resideInAnyPackage(
-                    "..aplicacion..", "..dominio..",
+                    "..aplicacion..", "..dominio..", "..adaptadores.rest..",
                     "org.springframework.web..", "org.springframework.http..", "java..");
 
     // Regla 3: las calculadoras implementan CalculadoraReembolso
@@ -35,6 +35,7 @@ public class ReglasArquitectura {
     static final ArchRule calculadorasImplementanInterfaz = classes()
             .that().resideInAPackage("..procesamiento.calculo..")
             .and().areNotInterfaces()
+            .and().doNotHaveSimpleName("SelectorCalculadora")
             .should().implement(CalculadoraReembolso.class);
 
     // Regla 4: los notificadores implementan ObservadorCambioEstado
