@@ -1,6 +1,6 @@
 # Sistema de Solicitudes de Reembolso de Gastos Corporativos
 
-Post-contenido — Proyecto Integrador de cierre · Patrones de Diseño de Software (UDES) · Unidad 12.
+Post-contenido —  Patrones de Diseño de Software (UDES) · Unidad 12.
 **Autora:** Natalia Díaz · **Stack:** Java 17, Spring Boot 4.1.2 (generado con start.spring.io), Maven, Spring Data JPA + H2, JUnit 5, ArchUnit 1.2.1, GitHub Actions.
 
 ![Validacion Arquitectonica](https://github.com/Nattss1311/diaz-post1-u12/actions/workflows/arquitectura.yml/badge.svg)
