@@ -11,8 +11,8 @@
 	<groupId>com.empresa</groupId>
 	<artifactId>reembolsos-integrado</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name/>
-	<description/>
+	<name>reembolsos-integrado</name>
+	<description>Post-contenido U12 - Sistema de Solicitudes de Reembolso de Gastos Corporativos</description>
 	<url/>
 	<licenses>
 		<license/>
