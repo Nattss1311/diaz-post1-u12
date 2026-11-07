@@ -13,7 +13,7 @@ import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@SpringBootTest
+@SpringBootTest(classes = ReembolsosApplication.class)
 class SolicitudIntegracionTest {
 
     @Autowired

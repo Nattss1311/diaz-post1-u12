@@ -1,5 +1,10 @@
 # Sistema de Solicitudes de Reembolso de Gastos Corporativos
 
+Proyecto integrador de cierre — Patrones de Diseño de Software (UDES), Unidad 12.
+**Autora:** Natalia Díaz · **Stack:** Java 17, Spring Boot, Maven, H2/JPA, JUnit 5, ArchUnit, GitHub Actions.
+
+![Validacion Arquitectonica](https://github.com/Nattss1311/diaz-post1-u12/actions/workflows/arquitectura.yml/badge.svg)
+
 ## Diseño Propuesto
 
 ### RF1 — Validación en varias etapas
@@ -35,6 +40,37 @@
 * **Decisión tomada:** La Regla 1 de ArchUnit prohíbe expresamente dependencias hacia `org.springframework.data..`, `jakarta.persistence..`, infraestructura y adaptadores web, pero permite las anotaciones de estereotipo de Spring como `@Component`.
 * **Justificación técnica:** Anotaciones como `@Component` son únicamente metadatos declarativos de inversión de control (IoC) que facilitan el autodescubrimiento y la inyección por lista de las estrategias y observadores, sin acoplar la lógica de negocio a una tecnología de almacenamiento o protocolo de red particular. Prohibir la totalidad del paquete `org.springframework` forzaría la creación de clases `@Configuration` externas innecesarias agregando sobreingeniería y fricción cognitiva, mientras que aislar selectivamente las clases de JPA y de la capa web garantiza que el procesamiento de negocio permanezca desacoplado de la base de datos y de la infraestructura HTTP.
 
+## Arquitectura resultante
+
+El sistema queda en **capas simples** con un núcleo de procesamiento aislado de la persistencia y de la web:
+
+```
+com.empresa.reembolsos
+├── dominio/                 SolicitudReembolso (@Entity), CategoriaGasto, EstadoSolicitud
+├── procesamiento/           Lógica de negocio pura (sin JPA ni web, verificado por ArchUnit)
+│   ├── validacion/          Chain of Responsibility: Documentos → MontoMaximo → Duplicados
+│   ├── calculo/             Strategy: CalculadoraViaje / Representacion / Capacitacion + SelectorCalculadora
+│   └── notificacion/        Observer: NotificadorEmpleado / Contabilidad / Auditoria
+├── aplicacion/              SolicitudReembolsoService (orquesta los tres patrones) + SolicitudInvalidaException
+├── infraestructura/         RepositorioSolicitudesJpa (Spring Data JPA)
+└── adaptadores/rest/        SolicitudReembolsoController (POST /api/solicitudes, PUT /api/solicitudes/{id}/estado)
+```
+
+Flujo: el controlador delega en `SolicitudReembolsoService`, que carga las solicitudes pendientes del empleado desde
+`RepositorioSolicitudesJpa`, las pasa a `CadenaValidadores` (los validadores reciben la lista ya cargada y nunca tocan la
+base de datos), obtiene la estrategia de cálculo de `SelectorCalculadora`, persiste y, ante un cambio de estado, notifica a
+todos los `ObservadorCambioEstado` inyectados.
+
+## Resumen de ADR-001
+
+Documento completo: [`docs/adr/ADR-001.md`](docs/adr/ADR-001.md).
+
+* **Pregunta:** ¿migrar a Hexagonal completa (puertos para persistencia y notificación) o mantener capas simples?
+* **Criterio aplicado (Guía, sección 6.2):** Hexagonal se justifica en sistemas que sobrevivirán 3+ años **con cambios de infraestructura**. Se evaluó por separado para cada dependencia externa.
+* **Persistencia → capas simples.** No existe ningún plan de cambiar el motor de base de datos; un puerto `RepositorioSolicitudes` + adaptador JPA sería una abstracción especulativa (YAGNI).
+* **Notificación → sin cambios.** El único cambio de infraestructura con fecha conocida (API externa de Contabilidad, próximo trimestre) ya tiene su seam: `ObservadorCambioEstado`. Solo cambiará la implementación interna de `NotificadorContabilidad`.
+* **Consecuencias:** menos clases y mappers hoy; se acepta conscientemente la deuda de introducir el puerto de persistencia si algún día cambia el motor. La asimetría (puerto implícito en notificación, ninguno en persistencia) es intencional y queda explicada en el ADR.
+
 ## Qué se descartó y por qué
 
 ### 1. Spring ApplicationEventPublisher en vez de una lista de observadores inyectada (Referencia de la Guía)
@@ -51,3 +87,52 @@
 * **Qué se consideró:** Crear una jerarquía de excepciones personalizadas (`DocumentosFaltantesException`, `TopeExcedidoException`, `SolicitudDuplicadaException`) derivadas de una clase base común en lugar de una sola `SolicitudInvalidaException` que transporte el motivo como texto.
 * **Por qué se descartó:** Viola el principio *KISS* (Keep It Simple, Stupid) y genera *shallow modules*. En la API REST actual, todas las fallas de validación de negocio se traducen en el mismo código de estado HTTP (400 Bad Request) devolviendo el mensaje de rechazo en el cuerpo de la respuesta. Introducir clases adicionales de excepción aumenta la sobrecarga cognitiva sin aportar ningún comportamiento diferenciado.
 * **Señal futura que haría reconsiderar:** Si la capa de presentación o los clientes de la API REST requieren códigos de error numéricos internacionales estandarizados o manejo diferenciado con redirección a flujos de subsanación específicos para cada tipo de rechazo.
+
+## Reglas de arquitectura (ArchUnit) y pipeline CI
+
+`src/test/java/com/empresa/reembolsos/ReglasArquitectura.java` define 4 reglas que se ejecutan con `mvn test -Dtest=ReglasArquitectura`:
+
+| # | Regla | Qué garantiza |
+|---|-------|---------------|
+| 1 | `procesamientoSinPersistenciaNiWeb` | Ninguna clase de `..procesamiento..` depende de `..infraestructura..`, `..adaptadores..`, `org.springframework.data..` ni `jakarta.persistence..` |
+| 2 | `controladorSoloUsaServicio` | El controlador REST solo accede a aplicación, dominio, su propio paquete y Spring Web |
+| 3 | `calculadorasImplementanInterfaz` | Toda clase concreta de `procesamiento.calculo` (excepto el selector) implementa `CalculadoraReembolso` |
+| 4 | `notificadoresImplementanInterfaz` | Toda clase concreta de `procesamiento.notificacion` implementa `ObservadorCambioEstado` |
+
+El workflow `.github/workflows/arquitectura.yml` se ejecuta en cada push y pull request a `main`: primero las reglas de
+arquitectura y luego la suite completa (`mvn verify`).
+
+### Evidencia del pipeline
+
+**1. Build fallido por violación intencional de la Regla 1.** Se agregó en `ValidadorDuplicados` un campo de tipo
+`RepositorioSolicitudesJpa` (commit `test: violacion de arquitectura intencional`). El job falla en el paso
+*Ejecutar reglas de arquitectura* con el mensaje de ArchUnit sobre `procesamientoSinPersistenciaNiWeb`; la suite completa
+ni siquiera llega a ejecutarse.
+
+![Pipeline fallido por violación de la Regla 1](capturas/01_pipeline_fallido.png)
+
+**2. Build en verde tras `git revert HEAD`.** Al revertir el commit de la violación, las 4 reglas y `mvn verify` pasan.
+
+![Pipeline en verde tras el revert](capturas/02_pipeline_exitoso.png)
+
+> Nota de aprendizaje: un primer intento solo agregó la sentencia `import` sin usarla y la Regla 1 **no** falló. Esto es
+> correcto: ArchUnit analiza el bytecode y `javac` descarta los imports no usados, así que no existe dependencia real.
+> La violación tiene que materializarse en el código (un campo, parámetro o llamada) para que ArchUnit la detecte.
+
+## Pruebas
+
+| Tipo | Clase | Cantidad |
+|------|-------|----------|
+| Unitarias — validadores (Chain of Responsibility) | `ValidadoresTest` | 3 |
+| Unitarias — calculadoras (Strategy) | `CalculadorasTest` | 3 |
+| Integración `@SpringBootTest` (crear → validar → calcular → aprobar → notificar) | `SolicitudIntegracionTest` | 1 |
+| Arranque del contexto | `ReembolsosApplicationTests` | 1 |
+| Arquitectura (ArchUnit) | `ReglasArquitectura` | 4 |
+
+## Cómo ejecutar
+
+```bash
+./mvnw test -Dtest=ReglasArquitectura   # solo reglas de arquitectura (4 pruebas)
+./mvnw verify                           # suite completa
+./mvnw spring-boot:run                  # API en http://localhost:8080/api/solicitudes
+```
