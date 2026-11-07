@@ -141,6 +141,8 @@ El workflow [`.github/workflows/arquitectura.yml`](.github/workflows/arquitectur
 
 ### Evidencia del pipeline
 
+> **Nota sobre el historial de GitHub Actions:** Los runs #1 a #5 corresponden a intentos y sincronizaciones previas durante la configuración del pipeline. La evidencia formal y válida de la violación de arquitectura evaluada corresponde al **Run #7** (fallo intencional de la Regla 1) y su posterior corrección en el **Run #8** (revert en verde con suite completa aprobada).
+
 **1. Build fallido por violación intencional de la Regla 1.** En el commit `4b82880 test: violacion de arquitectura intencional` se agregó a `ValidadorDuplicados` un campo de tipo `RepositorioSolicitudesJpa`. El job `arquitectura` falla en el paso *Ejecutar reglas de arquitectura* (`Tests run: 4, Failures: 1`) con la violación de `procesamientoSinPersistenciaNiWeb` sobre `ValidadorDuplicados`. El paso *Ejecutar suite completa de pruebas* no llega a ejecutarse.
 
 ![Pipeline fallido por violación de la Regla 1](capturas/01_pipeline_fallido.png)
